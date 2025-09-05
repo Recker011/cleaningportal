@@ -151,12 +151,14 @@ function layoutPage(title, contentHtml, user = null) {
   <title>${escapeHtml(title)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="/styles.css" rel="stylesheet">
+  <script src="/app.js" defer></script>
 </head>
 <body>
   <header class="site-header">
     <div class="container">
       <h1>Availability Tracking System</h1>
-      <nav>
+      <button class="nav-toggle" aria-controls="site-nav" aria-expanded="false" aria-label="Toggle navigation">☰</button>
+      <nav id="site-nav">
         ${navLinks}
         ${logoutForm}
       </nav>
@@ -438,21 +440,24 @@ app.get("/availability", requireAuth, async (req, res) => {
 
     const html = `
       <h2>My Weekly Availability</h2>
+      <p class="muted small">Tip: Tick morning/afternoon for each day. Add any constraints in the notes field.</p>
       <form method="post" action="/availability">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Day</th>
-              <th>Morning</th>
-              <th>Afternoon</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${formRows}
-          </tbody>
-        </table>
-        <button class="btn primary" type="submit">Save Availability</button>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Day</th>
+                <th>Morning</th>
+                <th>Afternoon</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${formRows}
+            </tbody>
+          </table>
+        </div>
+        <button class="btn primary block" type="submit">Save Availability</button>
       </form>
     `;
     res.send(layoutPage("My Availability", html, req.session.user));
@@ -573,6 +578,15 @@ app.get("/manager", requireManager, async (req, res) => {
       )
       .join("");
 
+    const morningCount = (rows || []).reduce(
+      (acc, r) => acc + (Number(r?.morning || 0) === 1 ? 1 : 0),
+      0
+    );
+    const afternoonCount = (rows || []).reduce(
+      (acc, r) => acc + (Number(r?.afternoon || 0) === 1 ? 1 : 0),
+      0
+    );
+
     let tableRows = "";
     for (const r of rows || []) {
       const morning = Number(r?.morning || 0) === 1;
@@ -582,12 +596,10 @@ app.get("/manager", requireManager, async (req, res) => {
         <tr>
           <td>${escapeHtml(r.username)}</td>
           <td>${DAYS[daySafe]}</td>
-          <td class="center">${morning ? "Yes" : "No"}</td>
-          <td class="center">${afternoon ? "Yes" : "No"}</td>
+          <td class="center">${morning ? '<span class="badge morning">Yes</span>' : '<span class="badge unavailable">No</span>'}</td>
+          <td class="center">${afternoon ? '<span class="badge afternoon">Yes</span>' : '<span class="badge unavailable">No</span>'}</td>
           <td>${escapeHtml(notes)}</td>
-          <td><a class="btn small" href="/manager/user/${
-            r.user_id
-          }">Edit</a></td>
+          <td><a class="btn small primary" href="/manager/user/${r.user_id}">Edit</a></td>
         </tr>
       `;
     }
@@ -603,8 +615,19 @@ app.get("/manager", requireManager, async (req, res) => {
           Shift
           <select name="shift">${optionsShift}</select>
         </label>
-        <button class="btn" type="submit">Apply Filters</button>
+        <button class="btn primary" type="submit">Apply Filters</button>
       </form>
+
+      <div class="card-grid">
+        <div class="card kpi">
+          <div class="kpi-value">${morningCount}</div>
+          <div class="kpi-label">Morning available</div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-value">${afternoonCount}</div>
+          <div class="kpi-label">Afternoon available</div>
+        </div>
+      </div>
 
       <div class="table-wrap">
         <table class="table">
@@ -706,20 +729,22 @@ app.get("/manager/user/:id", requireManager, async (req, res) => {
     const html = `
       <h2>Edit Availability: ${escapeHtml(u.username)}</h2>
       <form method="post" action="/manager/user/${u.id}">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Day</th>
-              <th>Morning</th>
-              <th>Afternoon</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${formRows}
-          </tbody>
-        </table>
-        <button class="btn primary" type="submit">Save Changes</button>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Day</th>
+                <th>Morning</th>
+                <th>Afternoon</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${formRows}
+            </tbody>
+          </table>
+        </div>
+        <button class="btn primary block" type="submit">Save Changes</button>
         <a class="btn" href="/manager">Back to Manager</a>
       </form>
     `;
@@ -887,6 +912,10 @@ app.get("/manager-dashboard", requireManager, async (req, res) => {
               `<tr><td colspan="8" class="center muted">No employees</td></tr>`
             }</tbody>
           </table>
+        </div>
+        <div class="legend muted small" role="note" aria-label="Legend">
+          <span class="dot available" aria-hidden="true"></span> Available
+          <span class="dot" aria-hidden="true" style="margin-left:12px;"></span> Not available
         </div>
       `;
     }

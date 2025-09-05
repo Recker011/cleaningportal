@@ -431,3 +431,49 @@ textarea:focus {
   background: #ffffff !important;
   color: #111111 !important;
 }
+
+/* Mobile responsiveness and UI enhancements */
+.small { font-size: 12px; }
+.legend { margin-top: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+input[type="checkbox"], input[type="radio"] {
+  accent-color: var(--primary);
+}
+
+/* Sticky table headers inside scroll container */
+.table-wrap { position: relative; }
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* KPI cards */
+.kpi { display: flex; align-items: center; gap: 12px; }
+.kpi-value { font-size: 28px; font-weight: 700; line-height: 1; }
+.kpi-label { color: var(--muted); font-size: 12px; }
+
+/* Mobile nav toggle */
+.nav-toggle {
+  display: none;
+  background: #ffffff;
+  color: #111111;
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 8px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Improve container padding on small screens, mobile nav, and make primary actions full width */
+@media (max-width: 640px) {
+  .container { padding: 16px; }
+  .btn.block { width: 100%; }
+
+  .nav-toggle { display: inline-flex; margin-left: auto; }
+  .site-header .container { align-items: flex-start; }
+  .site-header nav { display: none; width: 100%; flex-direction: column; gap: 8px; margin-left: 0; padding-top: 8px; }
+  .site-header nav.open { display: flex; }
+  .site-header nav a, .site-header nav .linklike { padding: 10px 12px; }
+}
