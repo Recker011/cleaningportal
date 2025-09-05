@@ -42,23 +42,15 @@ const hasDbConfig =
   !!DB_HOST && !!DB_NAME && !!DB_USER && typeof DB_PASSWORD === "string";
 
 let ssl = undefined;
-if (DB_SSL_CA_PATH) {
-  try {
-    const caPath = path.resolve(DB_SSL_CA_PATH);
-    if (fs.existsSync(caPath)) {
-      ssl = { ca: fs.readFileSync(caPath, "utf8") };
-      console.log(`[DB] Using SSL CA at: ${caPath}`);
-    } else {
-      console.warn(
-        `[DB] SSL CA file not found at ${caPath}, continuing without SSL`
-      );
-    }
-  } catch (e) {
-    console.warn(
-      "[DB] Unable to read SSL CA file, continuing without SSL",
-      e.message
-    );
+const defaultCaPath = path.resolve('certs/aiven_dev_ca.pem');
+const caCandidate = DB_SSL_CA_PATH ? path.resolve(DB_SSL_CA_PATH) : defaultCaPath;
+try {
+  if (fs.existsSync(caCandidate)) {
+    ssl = { ca: fs.readFileSync(caCandidate, 'utf8') };
+    console.log(`[DB] Using SSL CA at: ${caCandidate}`);
   }
+} catch (e) {
+  console.warn('[DB] Unable to read SSL CA file, continuing without SSL', e.message);
 }
 
 let pool = null;
@@ -237,11 +229,13 @@ async function migrateAndSeed() {
 // ---------- App ----------
 const app = express();
 
+app.set('trust proxy', 1);
+
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(compression());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+app.use(express.json({ limit: '2mb' }));
 
 app.use(
   cookieSession({
@@ -1036,17 +1030,17 @@ app.use((err, req, res, next) => {
     .send(errorPage("Server Error", "An unexpected error occurred."));
 });
 
-// Start-up
+/* Start-up / graceful shutdown */
+let server;
 (async () => {
-  try {
-    await migrateAndSeed();
-  } catch (e) {
-    // Already logged inside migrateAndSeed
-  }
-  app.listen(PORT, () => {
-    console.log(`Server listening on http://localhost:${PORT}`);
+  try { await migrateAndSeed(); } catch (_) {}
+  server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server listening on port ${PORT}`);
   });
 })();
+
+process.on('SIGTERM', () => server?.close(() => process.exit(0)));
+process.on('SIGINT',  () => server?.close(() => process.exit(0)));
 
 // Safety
 process.on("unhandledRejection", (reason) => {
